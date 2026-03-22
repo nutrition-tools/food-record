@@ -258,7 +258,7 @@ body {
 }
 .loading-bar-wrap { width:200px;height:8px;background:#e0e8f0;border-radius:4px;overflow:hidden; }
 .loading-bar-fill { height:100%;width:0%;background:linear-gradient(90deg,var(--sbi-blue),var(--sbi-green));border-radius:4px;animation:loadingProgress 3s ease-in-out infinite; }
-@keyframes loadingProgress { 0%{width:0%} 50%{width:75%} 90%{width:92%} 100%{width:92%} }
+@keyframes loadingProgress { 0%{width:0%} 40%{width:60%} 80%{width:85%} 100%{width:92%} }
 .loading-text { font-size: 15px; font-weight: 700; color: var(--sbi-blue); }
 .loading-sub { font-size: 12px; color: var(--text-sub); animation: fadeSubText 2s ease-in-out infinite; }
 @keyframes fadeSubText { 0%,100%{opacity:0.5} 50%{opacity:1} }
@@ -306,14 +306,19 @@ input[type=range]::-webkit-slider-thumb {
 }
 
 .save-btn {
-  width: 100%; padding: 13px; background: var(--sbi-green);
+  width: 100%; padding: 16px; background: var(--sbi-green);
   color: #fff; border: none; border-radius: 12px;
-  font-size: 15px; font-weight: 700; font-family: inherit;
+  font-size: 16px; font-weight: 700; font-family: inherit;
   cursor: pointer; margin-top: 12px;
   box-shadow: 0 4px 14px rgba(0,171,132,0.3);
   transition: all 0.15s;
+  min-height: 54px;
+  -webkit-tap-highlight-color: rgba(0,0,0,0.1);
+  touch-action: manipulation;
+  position: relative;
+  z-index: 1;
 }
-.save-btn:active { transform: scale(0.98); }
+.save-btn:active { transform: scale(0.98); background: #009970; }
 
 /* ── TODAY SCREEN ── */
 .today-summary {
@@ -543,7 +548,7 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
     </div>
 
     <!-- 食事種類（時間自動判定） -->
-    <div class="meal-selector" id="meal-selector">
+    <div class="meal-selector" id="meal-selector" style="margin-bottom:12px;">
       <div class="meal-chip" data-meal="朝食" onclick="selectMeal(this)">🌅 朝食</div>
       <div class="meal-chip" data-meal="昼食" onclick="selectMeal(this)">☀️ 昼食</div>
       <div class="meal-chip" data-meal="夕食" onclick="selectMeal(this)">🌙 夕食</div>
@@ -823,8 +828,8 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
 </div>
 
 <!-- 解析結果ポップアップ -->
-<div id="result-popup-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:599;"></div>
-<div id="result-popup" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:600;border-radius:24px 24px 0 0;background:#fff;box-shadow:0 -4px 30px rgba(0,0,0,0.2);">
+<div id="result-popup-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;"></div>
+<div id="result-popup" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:9999;border-radius:24px 24px 0 0;background:#fff;box-shadow:0 -4px 30px rgba(0,0,0,0.2);">
   <!-- ハンドル＆ヘッダー -->
   <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
     <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto;position:absolute;left:50%;transform:translateX(-50%);top:10px;"></div>
@@ -837,7 +842,7 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
     <div id="result-note" style="font-size:11px;color:var(--text-sub);padding:4px 2px 8px;line-height:1.5;"></div>
   </div>
   <!-- 合計＋保存ボタン（固定フッター） -->
-  <div style="padding:12px 16px calc(24px + env(safe-area-inset-bottom, 0px));background:#fff;border-top:1px solid var(--border);">
+  <div style="padding:12px 16px calc(24px + env(safe-area-inset-bottom, 0px));background:#fff;border-top:1px solid var(--border);position:relative;z-index:1;">
     <div id="total-nutrients" style="background:var(--sbi-blue-light);border-radius:12px;padding:10px 14px;margin-bottom:10px;"></div>
     <button class="save-btn" id="save-all-btn" onclick="saveMeal()" style="margin-top:0;">✅ まとめて記録する</button>
   </div>
@@ -1780,27 +1785,42 @@ async function generateMealAdvice(entry) {
   showAdvicePopup(entry.mealType, null);
 
   try {
-    const prompt = `あなたは管理栄養士コーチです。今記録された1食についてアドバイスをしてください。
+    // 保存済みの全食品合計を取得
+    const savedRecords = getRecords();
+    const today = toDateStr(recordDate);
+    const mealRecs = savedRecords.filter(r => r.date === today && r.mealType === entry.mealType);
+    const mealFoods = mealRecs.map(r => r.name).join('、');
+    const mealTotals = {
+      cal: mealRecs.reduce((s,r)=>s+r.cal,0),
+      protein: mealRecs.reduce((s,r)=>s+r.protein,0),
+      fat: mealRecs.reduce((s,r)=>s+r.fat,0),
+      carb: mealRecs.reduce((s,r)=>s+r.carb,0),
+      fiber: mealRecs.reduce((s,r)=>s+r.fiber,0),
+      salt: mealRecs.reduce((s,r)=>s+r.salt,0),
+    };
 
-【記録した食事】
-食事種類: ${entry.mealType}
-料理名: ${entry.name}
-エネルギー: ${Math.round(entry.cal)}kcal
-たんぱく質: ${entry.protein.toFixed(1)}g
-脂質: ${entry.fat.toFixed(1)}g
-炭水化物: ${entry.carb.toFixed(1)}g
-食物繊維: ${entry.fiber.toFixed(1)}g
-塩分: ${entry.salt.toFixed(1)}g
+    const prompt = `あなたは管理栄養士コーチです。今記録された食事全体についてアドバイスをしてください。
+
+【記録した食事（${entry.mealType}）】
+メニュー: ${mealFoods || entry.name}
+エネルギー合計: ${Math.round(mealTotals.cal)}kcal
+たんぱく質: ${mealTotals.protein.toFixed(1)}g
+脂質: ${mealTotals.fat.toFixed(1)}g
+炭水化物: ${mealTotals.carb.toFixed(1)}g
+食物繊維: ${mealTotals.fiber.toFixed(1)}g
+塩分: ${mealTotals.salt.toFixed(1)}g
 
 【1日目標】
 エネルギー: ${targets.cal}kcal、たんぱく質: ${targets.protein}g、脂質: ${targets.fat}g、塩分: ${targets.salt}g
 
 以下のルールで書いてください：
 - ${profile.name}さんに直接語りかける
-- この1食の良い点・気になる点を簡潔に
+- この食事全体（全メニュー）の良い点・気になる点を簡潔に
 - 次の食事への提案を1つ
-- 全体で100文字程度
-- 温かく親しみやすいトーンで`;
+- 全体で120文字程度
+- 温かく親しみやすいトーンで
+- アスタリスク（*）や記号は一切使わない
+- 自然な日本語の文章で書く`;
 
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -2772,7 +2792,20 @@ function showLoading(text='処理中...') {
   document.getElementById('loading').classList.add('show');
 }
 function hideLoading() {
-  document.getElementById('loading').classList.remove('show');
+  const bar = document.getElementById('loading-bar');
+  if (bar) {
+    bar.style.animation = 'none';
+    bar.style.width = '100%';
+    bar.style.transition = 'width 0.3s ease';
+  }
+  setTimeout(() => {
+    document.getElementById('loading').classList.remove('show');
+    if (bar) {
+      bar.style.transition = 'none';
+      bar.style.width = '0%';
+      bar.style.animation = 'loadingProgress 3s ease-in-out infinite';
+    }
+  }, 350);
 }
 function showToast(msg) {
   const t = document.getElementById('toast');
