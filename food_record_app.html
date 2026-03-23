@@ -539,12 +539,20 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
   <!-- RECORD SCREEN -->
   <div id="screen-record" class="screen">
 
-    <!-- 記録日付選択 -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;background:#fff;border-radius:12px;padding:8px 12px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,0.05);">
-      <span style="font-size:12px;color:var(--text-sub);font-weight:700;flex-shrink:0;">📅 記録日</span>
-      <button onclick="changeRecordDate(-1)" style="background:var(--sbi-blue-light);border:none;border-radius:8px;padding:5px 10px;font-size:16px;cursor:pointer;color:var(--sbi-blue);font-weight:700;flex-shrink:0;">‹</button>
-      <div style="flex:1;text-align:center;font-size:14px;font-weight:700;color:var(--sbi-blue);" id="record-date-label">今日</div>
-      <button onclick="changeRecordDate(1)" id="record-date-next" style="background:var(--sbi-blue-light);border:none;border-radius:8px;padding:5px 10px;font-size:16px;cursor:pointer;color:var(--sbi-blue);font-weight:700;flex-shrink:0;">›</button>
+    <!-- 記録日付選択（今日の記録タブと同じ仕様） -->
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:14px;padding:10px 14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid var(--border);">
+        <button onclick="changeRecordDate(-1)" style="background:var(--sbi-blue-light);border:none;border-radius:10px;padding:8px 14px;font-size:20px;cursor:pointer;color:var(--sbi-blue);font-weight:700;">‹</button>
+        <div style="flex:1;text-align:center;font-size:18px;font-weight:700;color:var(--sbi-blue);" id="record-date-label">今日</div>
+        <button onclick="changeRecordDate(1)" id="record-date-next" style="background:var(--sbi-blue-light);border:none;border-radius:10px;padding:8px 14px;font-size:20px;cursor:pointer;color:var(--sbi-blue);font-weight:700;">›</button>
+        <button onclick="toggleRecordCalendar()" style="background:var(--sbi-blue-light);border:none;border-radius:10px;padding:8px 10px;font-size:20px;cursor:pointer;line-height:1;" title="日付を指定">🗓️</button>
+      </div>
+      <div id="record-date-calendar" style="display:none;margin-top:6px;background:#fff;border-radius:12px;padding:10px 14px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;">📅 記録日を指定</div>
+        <input type="date" id="record-date-input"
+          style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--sbi-blue);border-radius:8px;font-size:15px;font-family:inherit;color:var(--text);background:#fff;-webkit-appearance:none;appearance:none;"
+          onchange="setRecordDateFromCalendar(this.value)">
+      </div>
     </div>
 
     <!-- 食事種類（時間自動判定） -->
@@ -588,7 +596,7 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
       </div>
     </div>
 
-    <!-- 欠食モード -->
+    <!-- 欠食モード（食事種類はmeal-selectorで選択可能） -->
     <div id="skip-mode" style="display:none;margin:0 14px 10px;background:#FFF5F5;border:1.5px solid #E7242E;border-radius:12px;padding:20px;text-align:center;">
       <div style="font-size:32px;margin-bottom:8px;">⚠️</div>
       <div style="font-size:15px;font-weight:700;color:#E7242E;margin-bottom:6px;" id="skip-meal-label">朝食を欠食として記録します</div>
@@ -613,14 +621,7 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
         <button onclick="changeViewDate(-1)" style="background:var(--sbi-blue-light);border:none;border-radius:10px;padding:8px 14px;font-size:20px;cursor:pointer;color:var(--sbi-blue);font-weight:700;">‹</button>
         <div style="flex:1;text-align:center;font-size:18px;font-weight:700;color:var(--sbi-blue);" id="view-date-label">今日</div>
         <button onclick="changeViewDate(1)" id="view-date-next" style="background:var(--sbi-blue-light);border:none;border-radius:10px;padding:8px 14px;font-size:20px;cursor:pointer;color:var(--sbi-blue);font-weight:700;">›</button>
-        <button onclick="toggleViewCalendar()" style="background:var(--sbi-blue-light);border:none;border-radius:10px;padding:8px 10px;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="日付を指定">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0058A0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-          </svg>
-        </button>
+        <button onclick="toggleViewCalendar()" style="background:var(--sbi-blue-light);border:none;border-radius:10px;padding:8px 10px;font-size:20px;cursor:pointer;line-height:1;" title="日付を指定">🗓️</button>
       </div>
       <div id="view-date-calendar" style="display:none;margin-top:6px;background:#fff;border-radius:12px;padding:10px 14px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.06);">
         <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px;">📅 日付を指定</div>
@@ -1039,6 +1040,22 @@ function toggleViewCalendar() {
   }
 }
 
+function toggleRecordCalendar() {
+  const cal = document.getElementById('record-date-calendar');
+  cal.style.display = cal.style.display === 'none' ? 'block' : 'none';
+  if (cal.style.display === 'block') {
+    document.getElementById('record-date-input').value = toDateStr(recordDate);
+  }
+}
+
+function setRecordDateFromCalendar(val) {
+  if (!val) return;
+  const parts = val.split('-');
+  recordDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  document.getElementById('record-date-calendar').style.display = 'none';
+  updateRecordDateLabel();
+}
+
 function changeRecordDate(delta) {
   recordDate = new Date(recordDate);
   recordDate.setDate(recordDate.getDate() + delta);
@@ -1169,6 +1186,11 @@ function selectMeal(el) {
   document.querySelectorAll('.meal-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   currentMeal = el.dataset.meal;
+  // 欠食モード中もラベルを更新
+  const skipLabel = document.getElementById('skip-meal-label');
+  if (skipLabel && document.getElementById('skip-mode').style.display !== 'none') {
+    skipLabel.textContent = `${currentMeal}を欠食として記録します`;
+  }
 }
 
 function setInputMode(mode) {
@@ -1224,6 +1246,7 @@ function setSkipMode() {
   document.getElementById('skip-mode').style.display = 'block';
   document.getElementById('analyze-btn').style.display = 'none';
   document.getElementById('skip-meal-label').textContent = `${currentMeal}を欠食として記録します`;
+  // meal-selectorは表示のまま（食事種類を変更できるように）
 }
 function cancelSkipMode() {
   document.getElementById('input-area').style.display = 'block';
@@ -1711,19 +1734,18 @@ function saveMeal() {
     }, 300);
   }
 
-  // 記録完了アニメーション
-  showSaveAnimation(entries.length);
-
-  // 1食保存後にアドバイス生成（合計エントリ）
-  generateMealAdvice(entries[0]);
-
-  // Reset
+  // Reset先にやってからアニメ・アドバイス
   foodItems = [];
   currentPhotos = [];
   renderPhotoThumbs();
   document.getElementById('food-text-input').value = '';
-  document.getElementById('food-text-input').value = '';
   resetResult();
+
+  // 記録完了アニメーション（少し遅らせてポップアップと競合しないように）
+  setTimeout(() => showSaveAnimation(entries.length), 100);
+
+  // アドバイスはアニメ後に表示
+  setTimeout(() => generateMealAdvice(entries[0]), 500);
   // toastは showSaveAnimation内で表示
 }
 
@@ -1741,7 +1763,7 @@ function showSaveAnimation(count) {
   document.getElementById('save-celebrate')?.remove();
   const overlay = document.createElement('div');
   overlay.id = 'save-celebrate';
-  overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:600;display:flex;align-items:center;justify-content:center;';
+  overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:500;display:flex;align-items:center;justify-content:center;';
   overlay.innerHTML = `
     <div style="background:rgba(255,255,255,0.97);border-radius:20px;padding:24px 28px;text-align:center;box-shadow:0 8px 40px rgba(0,88,160,0.2);max-width:300px;animation:celebrateIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275);">
       <div style="font-size:48px;margin-bottom:8px;animation:bounce 0.6s ease infinite alternate;">✅</div>
@@ -1861,7 +1883,7 @@ function showAdvicePopup(mealType, adviceText) {
 
   const popup = document.createElement('div');
   popup.id = 'advice-popup';
-  popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:700;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;';
+  popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9990;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.2s ease;';
 
   popup.innerHTML = `
     <div style="background:#fff;border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:24px 20px 36px;position:relative;animation:slideUp 0.35s cubic-bezier(0.175,0.885,0.32,1.275);">
