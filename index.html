@@ -648,6 +648,7 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
       <div class="filter-group">
         <label>期間</label>
         <select id="date-mode" onchange="onModeChange()">
+          <option value="today">本日</option>
           <option value="all">全期間</option>
           <option value="week">週単位</option>
           <option value="month">月単位</option>
@@ -839,8 +840,10 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
     <div style="font-size:16px;font-weight:700;color:var(--text);">🍽️ 解析結果</div>
     <button onclick="closeResultPopup()" style="width:36px;height:36px;border-radius:50%;background:var(--bg);border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-sub);">✕</button>
   </div>
+  <!-- 写真プレビュー -->
+  <div id="result-photo-preview" style="display:none;padding:8px 16px 0;overflow-x:auto;white-space:nowrap;"></div>
   <!-- スクロールエリア -->
-  <div id="result-popup-scroll" style="overflow-y:auto;max-height:55vh;padding:12px 16px 0;">
+  <div id="result-popup-scroll" style="overflow-y:auto;max-height:50vh;padding:12px 16px 0;">
     <div id="food-items-list"></div>
     <div id="result-note" style="font-size:11px;color:var(--text-sub);padding:4px 2px 8px;line-height:1.5;"></div>
   </div>
@@ -898,6 +901,44 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
         <button class="api-toggle" onclick="toggleApiKeySettings()">👁</button>
       </div>
     </div>
+
+    <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:14px;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:12px;">🎯 栄養目標の設定</div>
+      <div style="font-size:11px;color:var(--text-sub);margin-bottom:10px;">カロリーを変更するとPFC(g)が自動計算されます</div>
+      <div class="form-group">
+        <label class="form-label">カロリー目標 (kcal)</label>
+        <input type="number" class="form-input" id="s-target-cal" placeholder="例：2000" min="800" max="5000" oninput="previewPfcFromCal()">
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button type="button" onclick="resetCalTarget()" style="font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;color:var(--text-sub);cursor:pointer;font-family:inherit;">自動計算に戻す</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div class="form-group" style="margin-bottom:8px;">
+          <label class="form-label">P たんぱく質 (%)</label>
+          <input type="number" class="form-input" id="s-pfc-p" value="20" min="5" max="50" style="text-align:center;" oninput="previewPfcFromCal()">
+        </div>
+        <div class="form-group" style="margin-bottom:8px;">
+          <label class="form-label">F 脂質 (%)</label>
+          <input type="number" class="form-input" id="s-pfc-f" value="25" min="5" max="50" style="text-align:center;" oninput="previewPfcFromCal()">
+        </div>
+        <div class="form-group" style="margin-bottom:8px;">
+          <label class="form-label">C 炭水化物 (%)</label>
+          <input type="number" class="form-input" id="s-pfc-c" value="55" min="20" max="80" style="text-align:center;" oninput="previewPfcFromCal()">
+        </div>
+      </div>
+      <div id="pfc-preview" style="background:var(--bg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text-sub);line-height:1.7;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">塩分目標 (g)</label>
+          <input type="number" class="form-input" id="s-target-salt" step="0.5" min="1" max="20" style="text-align:center;">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">食物繊維目標 (g)</label>
+          <input type="number" class="form-input" id="s-target-fiber" step="1" min="5" max="40" style="text-align:center;">
+        </div>
+      </div>
+    </div>
+
     <button class="btn-primary" onclick="saveSettings()">保存する</button>
   </div>
 </div>
@@ -935,6 +976,7 @@ const NUTRIENTS_DEF = {
   protein: { label: 'たんぱく質', unit: 'g',    color: '#00AB84', max: 100  },
   fat:     { label: '脂質',       unit: 'g',    color: '#E7242E', max: 70   },
   carb:    { label: '炭水化物',   unit: 'g',    color: '#0058A0', max: 300  },
+  sugar:   { label: '糖質',       unit: 'g',    color: '#E6A817', max: 250  },
   fiber:   { label: '食物繊維',   unit: 'g',    color: '#00AB84', max: 25   },
   salt:    { label: '塩分',       unit: 'g',    color: '#BA7517', max: 8    },
 };
@@ -1095,26 +1137,57 @@ function autoDetectMeal() {
 function calcTargets() {
   if (!profile) return;
   const { gender, age, height, weight, activity } = profile;
-  const bmi_weight = (height / 100) ** 2 * 22; // 標準体重
+  const bmi_weight = (height / 100) ** 2 * 22;
 
-  // 基礎代謝（ハリス・ベネディクト式）
   let bmr;
   if (gender === 'male') {
     bmr = 13.397 * weight + 4.799 * height - 5.677 * age + 88.362;
   } else {
     bmr = 9.247 * weight + 3.098 * height - 4.330 * age + 447.593;
   }
-  const tdee = Math.round(bmr * activity / 50) * 50;
+  const autoTdee = Math.round(bmr * activity / 50) * 50;
 
-  // 日本人の食事摂取基準ベース
+  // カスタム目標が保存されていればそちらを使用
+  const custom = JSON.parse(localStorage.getItem('customTargets') || 'null');
+  const cal = custom?.cal || autoTdee;
+  const pPct = custom?.pPct || 20;
+  const fPct = custom?.fPct || 25;
+  const cPct = custom?.cPct || 55;
+
   targets = {
-    cal:     tdee,
-    protein: Math.round(bmi_weight * 1.2),           // 標準体重×1.2g
-    fat:     Math.round(tdee * 0.25 / 9),            // 25%E
-    carb:    Math.round(tdee * 0.55 / 4),            // 55%E
-    fiber:   gender === 'male' ? 21 : 18,            // 目標量
-    salt:    gender === 'male' ? 7.5 : 6.5,          // 食塩相当量目標量
+    cal:     cal,
+    protein: Math.round(cal * pPct / 100 / 4),
+    fat:     Math.round(cal * fPct / 100 / 9),
+    carb:    Math.round(cal * cPct / 100 / 4),
+    sugar:   Math.round(cal * cPct / 100 / 4) - (custom?.fiber || (gender === 'male' ? 21 : 18)),
+    fiber:   custom?.fiber || (gender === 'male' ? 21 : 18),
+    salt:    custom?.salt || (gender === 'male' ? 7.5 : 6.5),
   };
+  targets._autoTdee = autoTdee;
+  targets._pPct = pPct;
+  targets._fPct = fPct;
+  targets._cPct = cPct;
+}
+
+function previewPfcFromCal() {
+  const cal = parseInt(document.getElementById('s-target-cal').value) || 0;
+  const p = parseInt(document.getElementById('s-pfc-p').value) || 0;
+  const f = parseInt(document.getElementById('s-pfc-f').value) || 0;
+  const c = parseInt(document.getElementById('s-pfc-c').value) || 0;
+  const el = document.getElementById('pfc-preview');
+  if (!cal) { el.innerHTML = ''; return; }
+  const pctSum = p + f + c;
+  const warn = pctSum !== 100 ? `<div style="color:var(--sbi-red);font-weight:700;">⚠ P+F+C = ${pctSum}%（100%にしてください）</div>` : '';
+  el.innerHTML = `${warn}
+    <div>P たんぱく質: <b>${Math.round(cal*p/100/4)}g</b>（${p}%）</div>
+    <div>F 脂質: <b>${Math.round(cal*f/100/9)}g</b>（${f}%）</div>
+    <div>C 炭水化物: <b>${Math.round(cal*c/100/4)}g</b>（${c}%）</div>`;
+}
+
+function resetCalTarget() {
+  if (!targets._autoTdee) return;
+  document.getElementById('s-target-cal').value = targets._autoTdee;
+  previewPfcFromCal();
 }
 
 // ============================================================
@@ -1131,6 +1204,14 @@ function openSettings() {
   document.querySelectorAll('#settings-modal .radio-btn').forEach(b => {
     b.classList.toggle('selected', b.dataset.val === profile.gender);
   });
+  // 栄養目標フィールド（常に現在のtargetsから表示）
+  document.getElementById('s-target-cal').value = targets.cal || '';
+  document.getElementById('s-pfc-p').value = targets._pPct || 20;
+  document.getElementById('s-pfc-f').value = targets._fPct || 25;
+  document.getElementById('s-pfc-c').value = targets._cPct || 55;
+  document.getElementById('s-target-salt').value = targets.salt || (profile.gender === 'male' ? 7.5 : 6.5);
+  document.getElementById('s-target-fiber').value = targets.fiber || (profile.gender === 'male' ? 21 : 18);
+  previewPfcFromCal();
   document.getElementById('settings-modal').classList.add('show');
 }
 function closeSettings() {
@@ -1150,8 +1231,46 @@ function saveSettings() {
   if (!name || !gender || !age || !height || !weight || !apikey) {
     showToast('⚠️ すべての項目を入力してください'); return;
   }
+  // 性別変更の検出（profile更新前に比較）
+  const prevGender = profile?.gender;
+  const genderChanged = prevGender && prevGender !== gender;
+
   profile = { name, gender, age, height, weight, activity, apikey };
   localStorage.setItem('profile', JSON.stringify(profile));
+
+  // カスタム栄養目標を保存
+
+  const customCal = parseInt(document.getElementById('s-target-cal').value);
+  const pPct = parseInt(document.getElementById('s-pfc-p').value) || 20;
+  const fPct = parseInt(document.getElementById('s-pfc-f').value) || 25;
+  const cPct = parseInt(document.getElementById('s-pfc-c').value) || 55;
+  const inputSalt = parseFloat(document.getElementById('s-target-salt').value);
+  const inputFiber = parseFloat(document.getElementById('s-target-fiber').value);
+
+  // 性別が変わった場合、または入力値が新性別デフォルトと同じ場合はnull（性別連動）
+  const newDefaultSalt = gender === 'male' ? 7.5 : 6.5;
+  const newDefaultFiber = gender === 'male' ? 21 : 18;
+  const oldDefaultSalt = prevGender === 'male' ? 7.5 : 6.5;
+  const oldDefaultFiber = prevGender === 'male' ? 21 : 18;
+
+  let saveSalt = null;
+  let saveFiber = null;
+  if (!genderChanged) {
+    // 性別変更なし：ユーザーがデフォルトと違う値を入れた場合のみカスタム
+    if (inputSalt && inputSalt !== newDefaultSalt) saveSalt = inputSalt;
+    if (inputFiber && inputFiber !== newDefaultFiber) saveFiber = inputFiber;
+  }
+  // 性別変更あり → null（新性別のデフォルトが使われる）
+
+  const customTargets = {
+    cal: customCal || null,
+    pPct, fPct, cPct,
+    salt: saveSalt,
+    fiber: saveFiber,
+    _gender: gender,
+  };
+  localStorage.setItem('customTargets', JSON.stringify(customTargets));
+
   calcTargets();
   closeSettings();
   showToast('✅ 設定を保存しました');
@@ -1180,20 +1299,14 @@ function showScreen(name) {
   if (name === 'today') renderToday();
   if (name === 'analysis') {
     buildDashRows();
-    // デフォルトを当日にセット
+    // デフォルトを本日にセット
     const modeEl = document.getElementById('date-mode');
     if (modeEl) {
-      modeEl.value = 'day';
+      modeEl.value = 'today';
       ['week','month','day','custom'].forEach(m => {
-        document.getElementById('filter-' + m).style.display = m === 'day' ? 'flex' : 'none';
+        document.getElementById('filter-' + m).style.display = 'none';
       });
-      const todayStr = toDateStr(new Date());
       populateDashFilters();
-      const dSel = document.getElementById('day-filter');
-      if (dSel) {
-        const hasToday = allRows.some(r => r.date === todayStr);
-        dSel.value = hasToday ? todayStr : (dSel.options[dSel.options.length - 1]?.value || todayStr);
-      }
       updateAllRangeLabel();
     }
     renderDash();
@@ -1410,6 +1523,12 @@ function buildAnalysisPrompt(photoCount = 1) {
   const photoNote = photoCount > 1 ? `${photoCount}枚の写真に写っている料理をそれぞれ識別して` : 'この料理の写真を見て、含まれる料理・食品を識別して';
   return `${photoNote}、食品ごとに栄養素を推定してください。
 
+【栄養素の推定ルール】
+- 日本食品標準成分表（八訂）の値を基準に推定すること
+- チェーン店・外食チェーンのメニューが特定できる場合は、その店舗の公式栄養成分情報に基づくこと
+- 量が不明な場合は一般的な1人前の量で推定すること
+- カロリー(cal)は整数、その他は小数点1桁で回答すること
+
 以下のJSON形式のみで回答してください。他テキストは一切不要です。
 
 {
@@ -1435,6 +1554,12 @@ function buildAnalysisPromptText(text) {
 
 食事内容: ${text}
 
+【栄養素の推定ルール】
+- 日本食品標準成分表（八訂）の値を基準に推定すること
+- チェーン店・外食チェーンのメニューが特定できる場合は、その店舗の公式栄養成分情報に基づくこと
+- 量が不明な場合は一般的な1人前の量で推定すること
+- カロリー(cal)は整数、その他は小数点1桁で回答すること
+
 以下のJSON形式のみで回答してください。他テキストは一切不要です。
 
 {
@@ -1459,6 +1584,12 @@ function buildAnalysisPromptCombined(photoCount, text) {
   return `${photoCount}枚の写真に写っている料理と、以下のテキストに記載された食品をすべて合わせて、食品ごとに栄養素を推定してください。
 
 追加テキスト: ${text}
+
+【栄養素の推定ルール】
+- 日本食品標準成分表（八訂）の値を基準に推定すること
+- チェーン店・外食チェーンのメニューが特定できる場合は、その店舗の公式栄養成分情報に基づくこと
+- 量が不明な場合は一般的な1人前の量で推定すること
+- カロリー(cal)は整数、その他は小数点1桁で回答すること
 
 以下のJSON形式のみで回答してください。他テキストは一切不要です。
 
@@ -1525,11 +1656,27 @@ function openResultPopup() {
   requestAnimationFrame(() => {
     popup.style.transform = 'translateX(-50%) translateY(0)';
   });
-  // オーバーレイタップで閉じる
+
+  // 写真プレビュー表示
+  const previewEl = document.getElementById('result-photo-preview');
+  if (previewEl) {
+    if (currentPhotos.length > 0) {
+      previewEl.style.display = 'flex';
+      previewEl.style.gap = '8px';
+      previewEl.innerHTML = currentPhotos.map(p =>
+        `<img src="${p.dataUrl}" style="height:80px;border-radius:8px;object-fit:cover;flex-shrink:0;">`
+      ).join('');
+    } else {
+      previewEl.style.display = 'none';
+      previewEl.innerHTML = '';
+    }
+  }
+  // オーバーレイタップで閉じる（ポップアップ内クリックはバブリング防止）
   overlay.onclick = closeResultPopup;
+  popup.onclick = (e) => e.stopPropagation();
 }
 
-function closeResultPopup() {
+function closeResultPopup(clearItems = true) {
   const overlay = document.getElementById('result-popup-overlay');
   const popup = document.getElementById('result-popup');
   popup.style.transform = 'translateX(-50%) translateY(100%)';
@@ -1537,7 +1684,7 @@ function closeResultPopup() {
     overlay.style.display = 'none';
     popup.style.display = 'none';
   }, 300);
-  foodItems = [];
+  if (clearItems) foodItems = [];
 }
 
 function renderFoodItemsList() {
@@ -1760,16 +1907,8 @@ function saveMeal() {
   saveRecords(records);
   buildDashRows();
 
-  // ポップアップを閉じる
-  const overlay = document.getElementById('result-popup-overlay');
-  const popup = document.getElementById('result-popup');
-  if (popup) {
-    popup.style.transform = 'translateX(-50%) translateY(100%)';
-    setTimeout(() => {
-      if (overlay) overlay.style.display = 'none';
-      if (popup) popup.style.display = 'none';
-    }, 300);
-  }
+  // ポップアップを閉じる（foodItemsクリアしない、saveMeal内で自前クリアする）
+  closeResultPopup(false);
 
   // Reset先にやってからアニメ・アドバイス
   foodItems = [];
@@ -1961,17 +2100,24 @@ function renderToday() {
   if (nextBtn) nextBtn.style.opacity = isToday ? '0.3' : '1';
 
   // 合計
-  const totals = { cal:0, protein:0, fat:0, carb:0, fiber:0, salt:0 };
+  const totals = { cal:0, protein:0, fat:0, carb:0, sugar:0, fiber:0, salt:0 };
   todayRecs.forEach(r => {
-    Object.keys(totals).forEach(k => totals[k] += r[k] || 0);
+    totals.cal += r.cal || 0;
+    totals.protein += r.protein || 0;
+    totals.fat += r.fat || 0;
+    totals.carb += r.carb || 0;
+    totals.sugar += r.sugar || r.carb || 0; // sugar未設定時はcarbで代用
+    totals.fiber += r.fiber || 0;
+    totals.salt += r.salt || 0;
   });
 
-  // 栄養素別ゾーン設定（超過しても必ずしも悪くない栄養素は緩め）
+  // 栄養素別ゾーン設定
   const NUTR_ZONES = {
     cal:     [[0,60,'#ccc'],[60,80,'#a8d8a8'],[80,110,'#4CAF50'],[110,130,'#FF9800'],[130,999,'#F44336']],
     protein: [[0,60,'#ccc'],[60,80,'#a8d8a8'],[80,120,'#4CAF50'],[120,150,'#FF9800'],[150,999,'#F44336']],
     fat:     [[0,60,'#ccc'],[60,80,'#a8d8a8'],[80,100,'#4CAF50'],[100,120,'#FF9800'],[120,999,'#F44336']],
     carb:    [[0,60,'#ccc'],[60,80,'#a8d8a8'],[80,110,'#4CAF50'],[110,130,'#FF9800'],[130,999,'#F44336']],
+    sugar:   [[0,60,'#ccc'],[60,80,'#a8d8a8'],[80,110,'#4CAF50'],[110,130,'#FF9800'],[130,999,'#F44336']],
     fiber:   [[0,60,'#ccc'],[60,80,'#a8d8a8'],[80,999,'#4CAF50']],
     salt:    [[0,60,'#ccc'],[60,80,'#a8d8a8'],[80,100,'#4CAF50'],[100,120,'#FF9800'],[120,999,'#F44336']],
   };
@@ -1980,6 +2126,7 @@ function renderToday() {
     protein: [[0,'少ない'],[60,'もう少し'],[80,'適正'],[120,'注意'],[150,'多め']],
     fat:     [[0,'少ない'],[60,'もう少し'],[80,'適正'],[100,'注意'],[120,'多め']],
     carb:    [[0,'少ない'],[60,'もう少し'],[80,'適正'],[110,'注意'],[130,'多め']],
+    sugar:   [[0,'少ない'],[60,'もう少し'],[80,'適正'],[110,'注意'],[130,'多め']],
     fiber:   [[0,'少ない'],[60,'もう少し'],[80,'適正']],
     salt:    [[0,'少ない'],[60,'もう少し'],[80,'適正'],[100,'注意'],[120,'多め']],
   };
@@ -2059,6 +2206,7 @@ function renderToday() {
     ${makeNutrBar('protein', totals.protein, targets.protein||60, 'たんぱく質', false)}
     ${makeNutrBar('fat', totals.fat, targets.fat||55, '脂質', false)}
     ${makeNutrBar('carb', totals.carb, targets.carb||250, '炭水化物', false)}
+    ${makeNutrBar('sugar', totals.sugar, targets.sugar||200, '糖質', false)}
     ${makeNutrBar('fiber', totals.fiber, targets.fiber||18, '食物繊維', false)}
     ${makeNutrBar('salt', totals.salt, targets.salt||6.5, '塩分', false)}
   </div>`;
@@ -2630,7 +2778,10 @@ function getDashFilteredRows() {
   return allRows.filter(r => {
     const mealOk = mealVal === 'all' || r.mealType === mealVal;
     let dateOk = true;
-    if (mode === 'week') {
+    if (mode === 'today') {
+      const todayStr = new Date().toISOString().slice(0,10);
+      dateOk = r.date === todayStr;
+    } else if (mode === 'week') {
       const wk = document.getElementById('week-filter').value;
       dateOk = getWeekDates(wk).some(wd => r.date.startsWith(wd));
     } else if (mode === 'month') {
@@ -2681,9 +2832,9 @@ function renderDash() {
   const maxMealVal = Object.values(mealTotals).length ? Math.max(...Object.values(mealTotals)) : 0;
 
   document.getElementById('dash-metrics').innerHTML = `
-    <div class="metric"><div class="metric-label">1日の平均</div><div class="metric-value">${avgPerDay.toFixed(1)}</div><div class="metric-unit">${nut.unit}</div></div>
-    <div class="metric"><div class="metric-label">1食の平均</div><div class="metric-value">${avgPerMeal.toFixed(1)}</div><div class="metric-unit">${nut.unit}</div></div>
-    <div class="metric"><div class="metric-label">1食の最高</div><div class="metric-value">${maxMealVal.toFixed(1)}</div><div class="metric-unit">${nut.unit}</div></div>
+    <div class="metric"><div class="metric-label">1日の平均</div><div class="metric-value">${key==='cal'?Math.round(avgPerDay):avgPerDay.toFixed(1)}</div><div class="metric-unit">${nut.unit}</div></div>
+    <div class="metric"><div class="metric-label">1食の平均</div><div class="metric-value">${key==='cal'?Math.round(avgPerMeal):avgPerMeal.toFixed(1)}</div><div class="metric-unit">${nut.unit}</div></div>
+    <div class="metric"><div class="metric-label">1食の最高</div><div class="metric-value">${key==='cal'?Math.round(maxMealVal):maxMealVal.toFixed(1)}</div><div class="metric-unit">${nut.unit}</div></div>
     <div class="metric"><div class="metric-label">食品数</div><div class="metric-value">${rows.length}</div><div class="metric-unit">品</div></div>
   `;
 
@@ -2711,7 +2862,9 @@ function renderDash() {
 
   const mode = document.getElementById('date-mode').value;
   let allDayLabels;
-  if (mode === 'week') {
+  if (mode === 'today') {
+    allDayLabels = [new Date().toISOString().slice(0,10)];
+  } else if (mode === 'week') {
     const weekKey = document.getElementById('week-filter').value;
     allDayLabels = getWeekDates(weekKey);
   } else if (mode === 'all') {
@@ -2846,26 +2999,23 @@ function renderDash() {
     return `<div class="hm-header">${label}</div>`;
   }).join('');
 
-  mealTypes2.forEach((meal, mealIdx) => {
-    const isLast = mealIdx === mealTypes2.length - 1;
-    const sepStyle = isLast ? '' : 'border-bottom: 1px solid #e0e0e0;';
-    hm.innerHTML += `<div class="hm-label" style="${sepStyle}">${meal}</div>`;
+  mealTypes2.forEach((meal) => {
+    hm.innerHTML += `<div class="hm-label">${meal}</div>`;
     allDays2.forEach(day => {
       const cell = heatRows[day]?.[meal];
       if (cell && cell.val > 0) {
         const alpha = Math.min(1, cell.val / hmMax);
-        // オレンジ〜赤系（参考ファイルに合わせる）
         const r2 = Math.round(216 * alpha + 220 * (1-alpha));
         const g2 = Math.round(75  * alpha + 220 * (1-alpha));
         const b2 = Math.round(74  * alpha + 220 * (1-alpha));
         const valStr = key === 'cal' ? Math.round(cell.val) : cell.val.toFixed(1);
         const menuNames = cell.names.slice(0,5).join('\n');
         const tooltip = `合計: ${valStr}${nut.unit}${menuNames ? '\n\n' + menuNames : ''}`;
-        hm.innerHTML += `<div class="hm-cell" style="background:rgb(${r2},${g2},${b2});cursor:default;${sepStyle}" title="${tooltip}">
+        hm.innerHTML += `<div class="hm-cell" style="background:rgb(${r2},${g2},${b2});cursor:default;" title="${tooltip}">
           <div class="hm-val">${valStr}</div>
         </div>`;
       } else {
-        hm.innerHTML += `<div class="hm-empty" style="${sepStyle}"></div>`;
+        hm.innerHTML += `<div class="hm-empty"></div>`;
       }
     });
   });
