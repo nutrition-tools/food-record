@@ -1674,9 +1674,8 @@ function openResultPopup() {
       previewEl.innerHTML = '';
     }
   }
-  // オーバーレイタップで閉じる（ポップアップ内クリックはバブリング防止）
-  overlay.onclick = closeResultPopup;
-  popup.onclick = (e) => e.stopPropagation();
+  // オーバーレイ自体をタップしたときだけ閉じる
+  overlay.onclick = (e) => { if (e.target === overlay) closeResultPopup(); };
 }
 
 function closeResultPopup(clearItems = true) {
