@@ -833,22 +833,22 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
 
 <!-- 解析結果ポップアップ -->
 <div id="result-popup-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;"></div>
-<div id="result-popup" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:9999;border-radius:24px 24px 0 0;background:#fff;box-shadow:0 -4px 30px rgba(0,0,0,0.2);">
+<div id="result-popup" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:9999;border-radius:24px 24px 0 0;background:#fff;box-shadow:0 -4px 30px rgba(0,0,0,0.2);max-height:90vh;display:flex;flex-direction:column;">
   <!-- ハンドル＆ヘッダー -->
-  <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+  <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative;">
     <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto;position:absolute;left:50%;transform:translateX(-50%);top:10px;"></div>
     <div style="font-size:16px;font-weight:700;color:var(--text);">🍽️ 解析結果</div>
     <button onclick="closeResultPopup()" style="width:36px;height:36px;border-radius:50%;background:var(--bg);border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-sub);">✕</button>
   </div>
   <!-- 写真プレビュー -->
-  <div id="result-photo-preview" style="display:none;padding:8px 16px 0;overflow-x:auto;white-space:nowrap;"></div>
+  <div id="result-photo-preview" style="display:none;padding:8px 16px 0;overflow-x:auto;white-space:nowrap;flex-shrink:0;"></div>
   <!-- スクロールエリア -->
-  <div id="result-popup-scroll" style="overflow-y:auto;max-height:50vh;padding:12px 16px 0;">
+  <div id="result-popup-scroll" style="overflow-y:auto;flex:1;min-height:0;padding:12px 16px 0;">
     <div id="food-items-list"></div>
     <div id="result-note" style="font-size:11px;color:var(--text-sub);padding:4px 2px 8px;line-height:1.5;"></div>
   </div>
   <!-- 合計＋保存ボタン（固定フッター） -->
-  <div style="padding:12px 16px calc(24px + env(safe-area-inset-bottom, 0px));background:#fff;border-top:1px solid var(--border);position:relative;z-index:1;">
+  <div style="padding:12px 16px calc(24px + env(safe-area-inset-bottom, 0px));background:#fff;border-top:1px solid var(--border);flex-shrink:0;z-index:1;">
     <div id="total-nutrients" style="background:var(--sbi-blue-light);border-radius:12px;padding:10px 14px;margin-bottom:10px;"></div>
     <button class="save-btn" id="save-all-btn" onclick="saveMeal()" style="margin-top:0;">✅ まとめて記録する</button>
   </div>
@@ -1772,7 +1772,7 @@ function renderFoodItemsList() {
           style="flex:1;padding:8px 4px;border-radius:20px;border:1.5px solid ${isCustom ? 'var(--sbi-blue)' : 'var(--border)'};
           background:${isCustom ? 'var(--sbi-blue-light)' : '#fff'};
           color:${isCustom ? 'var(--sbi-blue)' : 'var(--text-sub)'};
-          font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation;">カスタム${isCustom ? ` (${serving.toFixed(1)})` : ''}</button>
+          font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation;">カスタム${isCustom ? ` (${ratio.toFixed(1)})` : ''}</button>
       </div>
     </div>`;
   }).join('');
@@ -2142,26 +2142,15 @@ function renderToday() {
     return { color, label };
   }
 
-  // バーのグラデーション生成（なめらかグラデーション）
+  // バーのグラデーション生成（fill部分のみ、グレーは含めない）
   function getNutrGrad(k, pct) {
-    // 適正範囲内：緑単色 + グレー残り
-    if (pct <= 80) {
-      const { color } = getNutrZone(k, pct);
-      // 薄いグラデーションで自然に
-      return `linear-gradient(to right, #4CAF50 0%, #4CAF50 ${pct}%, #e0e0e0 ${pct}%, #e0e0e0 100%)`;
-    }
-    if (pct <= 100) {
-      return `linear-gradient(to right, #4CAF50 0%, #4CAF50 ${pct}%, #e0e0e0 ${pct}%, #e0e0e0 100%)`;
-    }
+    if (pct <= 100) return '#4CAF50';
     // 超過の場合：なめらかグラデーション（緑→黄→オレンジ→赤）
-    // 表示上の最大値（200%を100%幅として表示）
     const displayMax = Math.max(pct, 120);
-    // 各色の境界位置を計算（表示幅100%に対する割合）
     const p80  = Math.min((80  / displayMax) * 100, 100);
     const p100 = Math.min((100 / displayMax) * 100, 100);
     const p120 = Math.min((120 / displayMax) * 100, 100);
     const p140 = Math.min((140 / displayMax) * 100, 100);
-    // なめらかなグラデーション（境界を5%ぼかす）
     const blur = 4;
     return `linear-gradient(to right,
       #4CAF50 0%,
@@ -2177,7 +2166,7 @@ function renderToday() {
 
   function makeNutrBar(k, val, target, label, isLarge) {
     const pct = Math.round(val / (target||1) * 100);
-    const barPct = Math.min(100, pct / Math.max(pct, 100) * 100); // バー幅は100%まで
+    const barPct = Math.min(pct, 100); // バー幅は達成率そのまま（最大100%）
     const { color, label: statusLabel } = getNutrZone(k, pct);
     const grad = getNutrGrad(k, pct);
     const valStr = k === 'cal' ? Math.round(val).toLocaleString() : val.toFixed(1);
@@ -2560,15 +2549,22 @@ function editRecord(id) {
       <select class="form-input" id="edit-mealtype">${mealOptions}</select>
     </div>
     <div class="form-group">
-      <label class="form-label">量を調整（%）</label>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <input type="range" id="edit-pct-slider" min="0" max="200" step="5" value="100"
-          style="flex:1;height:8px;border-radius:4px;background:linear-gradient(to right,var(--sbi-blue) 50%,#e0e8f0 50%);"
-          oninput="applyEditPct(this.value,'slider')">
-        <input type="number" id="edit-pct-input" min="0" max="1000" value="100"
-          style="width:64px;padding:6px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;font-weight:700;text-align:center;color:var(--sbi-blue);font-family:inherit;"
-          oninput="applyEditPct(this.value,'input')">
+      <label class="form-label">量を調整</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        ${[['0.5人前',0.5],['1人前',1.0],['1.5人前',1.5],['2人前',2.0]].map(([label,val]) => `
+          <button onclick="applyEditServing(${val})"
+            style="flex:1;padding:8px 4px;border-radius:20px;border:1.5px solid var(--border);
+            background:#fff;color:var(--text-sub);
+            font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.15s;"
+            class="edit-serving-btn" data-val="${val}">${label}</button>
+        `).join('')}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="number" id="edit-pct-input" min="10" max="1000" value="100" step="5"
+          style="width:80px;padding:6px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;font-weight:700;text-align:center;color:var(--sbi-blue);font-family:inherit;"
+          oninput="applyEditPct(this.value)">
         <span style="font-size:14px;font-weight:700;color:var(--sbi-blue);">%</span>
+        <span style="font-size:11px;color:var(--text-light);">（数値を直接入力も可）</span>
       </div>
     </div>
     ${['cal','protein','fat','carb','fiber','salt'].map(k => {
@@ -2583,20 +2579,35 @@ function editRecord(id) {
   document.getElementById('edit-modal').classList.add('show');
 }
 
-function applyEditPct(val, source) {
-  if (source === 'input') {
-    const raw = document.getElementById('edit-pct-input').value;
-    if (raw === '') return;
-    val = Math.min(1000, Math.max(0, parseInt(raw) || 0));
-  } else {
-    val = parseInt(val);
-  }
+function applyEditServing(servings) {
+  const pct = Math.round(servings * 100);
+  document.getElementById('edit-pct-input').value = pct;
+  applyEditPct(pct);
+  // ボタンのアクティブ状態を更新
+  document.querySelectorAll('.edit-serving-btn').forEach(btn => {
+    const v = parseFloat(btn.dataset.val);
+    const active = Math.abs(v - servings) < 0.01;
+    btn.style.borderColor = active ? 'var(--sbi-blue)' : 'var(--border)';
+    btn.style.background = active ? 'var(--sbi-blue-light)' : '#fff';
+    btn.style.color = active ? 'var(--sbi-blue)' : 'var(--text-sub)';
+  });
+}
+
+function applyEditPct(val) {
+  const raw = document.getElementById('edit-pct-input').value;
+  if (raw === '') return;
+  val = Math.min(1000, Math.max(0, parseInt(raw) || 0));
   const ratio = val / 100;
-  const fillPct = Math.min(100, (Math.min(val,200)/200)*100);
-  const slider = document.getElementById('edit-pct-slider');
-  slider.value = Math.min(200, val);
-  slider.style.background = `linear-gradient(to right,var(--sbi-blue) ${fillPct}%,#e0e8f0 ${fillPct}%)`;
-  if (source === 'slider') document.getElementById('edit-pct-input').value = val;
+  document.getElementById('edit-pct-input').value = val;
+
+  // ボタンのアクティブ状態を更新
+  document.querySelectorAll('.edit-serving-btn').forEach(btn => {
+    const v = parseFloat(btn.dataset.val);
+    const active = Math.abs(v - ratio) < 0.01;
+    btn.style.borderColor = active ? 'var(--sbi-blue)' : 'var(--border)';
+    btn.style.background = active ? 'var(--sbi-blue-light)' : '#fff';
+    btn.style.color = active ? 'var(--sbi-blue)' : 'var(--text-sub)';
+  });
 
   const keys = ['cal','protein','fat','carb','fiber','salt'];
   keys.forEach(k => {
