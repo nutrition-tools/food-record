@@ -833,7 +833,7 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
 
 <!-- 解析結果ポップアップ -->
 <div id="result-popup-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;"></div>
-<div id="result-popup" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:9999;border-radius:24px 24px 0 0;background:#fff;box-shadow:0 -4px 30px rgba(0,0,0,0.2);max-height:90vh;display:flex;flex-direction:column;">
+<div id="result-popup" style="display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:9999;border-radius:24px 24px 0 0;background:#fff;box-shadow:0 -4px 30px rgba(0,0,0,0.2);max-height:90vh;flex-direction:column;">
   <!-- ハンドル＆ヘッダー -->
   <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative;">
     <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto;position:absolute;left:50%;transform:translateX(-50%);top:10px;"></div>
@@ -843,7 +843,7 @@ select { border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; 
   <!-- 写真プレビュー -->
   <div id="result-photo-preview" style="display:none;padding:8px 16px 0;overflow-x:auto;white-space:nowrap;flex-shrink:0;"></div>
   <!-- スクロールエリア -->
-  <div id="result-popup-scroll" style="overflow-y:auto;flex:1;min-height:0;padding:12px 16px 0;">
+  <div id="result-popup-scroll" style="overflow-y:auto;flex:1;min-height:0;padding:12px 16px 0;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;">
     <div id="food-items-list"></div>
     <div id="result-note" style="font-size:11px;color:var(--text-sub);padding:4px 2px 8px;line-height:1.5;"></div>
   </div>
