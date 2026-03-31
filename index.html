@@ -1772,7 +1772,7 @@ function renderFoodItemsList() {
           style="flex:1;padding:8px 4px;border-radius:20px;border:1.5px solid ${isCustom ? 'var(--sbi-blue)' : 'var(--border)'};
           background:${isCustom ? 'var(--sbi-blue-light)' : '#fff'};
           color:${isCustom ? 'var(--sbi-blue)' : 'var(--text-sub)'};
-          font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation;">カスタム${isCustom ? ` (${serving.toFixed(1)})` : ''}</button>
+          font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;touch-action:manipulation;">カスタム${isCustom ? ` (${ratio.toFixed(1)})` : ''}</button>
       </div>
     </div>`;
   }).join('');
@@ -2144,14 +2144,9 @@ function renderToday() {
 
   // バーのグラデーション生成（なめらかグラデーション）
   function getNutrGrad(k, pct) {
-    // 適正範囲内：緑単色 + グレー残り
-    if (pct <= 80) {
-      const { color } = getNutrZone(k, pct);
-      // 薄いグラデーションで自然に
-      return `linear-gradient(to right, #4CAF50 0%, #4CAF50 ${pct}%, #e0e0e0 ${pct}%, #e0e0e0 100%)`;
-    }
+    // 適正範囲内：緑単色（グレー残りはトラック背景が担う）
     if (pct <= 100) {
-      return `linear-gradient(to right, #4CAF50 0%, #4CAF50 ${pct}%, #e0e0e0 ${pct}%, #e0e0e0 100%)`;
+      return '#4CAF50';
     }
     // 超過の場合：なめらかグラデーション（緑→黄→オレンジ→赤）
     // 表示上の最大値（200%を100%幅として表示）
