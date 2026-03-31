@@ -2826,7 +2826,7 @@ function getDashFilteredRows() {
     const mealOk = mealVal === 'all' || r.mealType === mealVal;
     let dateOk = true;
     if (mode === 'today') {
-      const todayStr = new Date().toISOString().slice(0,10);
+      const todayStr = toDateStr(new Date());
       dateOk = r.date === todayStr;
     } else if (mode === 'week') {
       const wk = document.getElementById('week-filter').value;
@@ -2910,7 +2910,7 @@ function renderDash() {
   const mode = document.getElementById('date-mode').value;
   let allDayLabels;
   if (mode === 'today') {
-    allDayLabels = [new Date().toISOString().slice(0,10)];
+    allDayLabels = [toDateStr(new Date())];
   } else if (mode === 'week') {
     const weekKey = document.getElementById('week-filter').value;
     allDayLabels = getWeekDates(weekKey);
