@@ -1342,37 +1342,65 @@ function triggerLibrary() {
   document.getElementById('photo-input-library').click();
 }
 function triggerHistory() {
-  // 過去の記録から写真を使用
-  const records = getRecords().filter(r => r.photo);
-  if (!records.length) { showToast('📷 過去の写真記録がありません'); return; }
-  // 最近の20件をモーダルで表示
-  showHistoryPhotoModal(records.slice(-20).reverse());
+  const records = getRecords();
+  if (!records.length) { showToast('📋 過去の記録がありません'); return; }
+  // 重複除去（同名・同日は1件）して最近50件
+  const seen = new Set();
+  const unique = [];
+  [...records].reverse().forEach(r => {
+    const key = `${r.date}_${r.name}`;
+    if (!seen.has(key)) { seen.add(key); unique.push(r); }
+    if (unique.length >= 50) return;
+  });
+  showHistoryModal(unique);
 }
-function showHistoryPhotoModal(records) {
+function showHistoryModal(records) {
   const existing = document.getElementById('history-photo-modal');
   if (existing) existing.remove();
   const modal = document.createElement('div');
   modal.id = 'history-photo-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;display:flex;align-items:flex-end;';
   modal.innerHTML = `
-    <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;margin:0 auto;padding:20px;max-height:70vh;overflow-y:auto;">
-      <div style="width:36px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 16px;"></div>
-      <div style="font-size:15px;font-weight:700;margin-bottom:12px;">🕐 過去の写真から選ぶ</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-        ${records.map((r,i) => `
-          <div onclick="useHistoryPhoto('${r.photo}','${r.name}')" style="cursor:pointer;border-radius:10px;overflow:hidden;border:2px solid var(--border);">
-            <img src="${r.photo}" style="width:100%;height:80px;object-fit:cover;">
-            <div style="font-size:10px;padding:4px 6px;color:var(--text-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
-          </div>`).join('')}
+    <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:480px;margin:0 auto;padding:20px;max-height:70vh;display:flex;flex-direction:column;">
+      <div style="width:36px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 16px;flex-shrink:0;"></div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:12px;flex-shrink:0;">🕐 過去の記録から選ぶ</div>
+      <div style="overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch;">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+          ${records.map(r => {
+            const dateLabel = r.date ? r.date.replace(/^\d{4}-/,'').replace('-','/') : '';
+            if (r.photo) {
+              return `<div onclick="useHistoryRecord('${r.photo}','${r.name.replace(/'/g,"\\'")}',true)" style="cursor:pointer;border-radius:10px;overflow:hidden;border:2px solid var(--border);touch-action:manipulation;">
+                <img src="${r.photo}" style="width:100%;height:70px;object-fit:cover;">
+                <div style="font-size:9px;padding:3px 5px;color:var(--text-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
+                <div style="font-size:9px;padding:0 5px 3px;color:#aaa;">${dateLabel}</div>
+              </div>`;
+            } else {
+              return `<div onclick="useHistoryRecord('','${r.name.replace(/'/g,"\\'")}',false)" style="cursor:pointer;border-radius:10px;overflow:hidden;border:2px solid var(--border);touch-action:manipulation;">
+                <div style="width:100%;height:70px;background:var(--sbi-blue-light);display:flex;align-items:center;justify-content:center;font-size:28px;">🍽️</div>
+                <div style="font-size:9px;padding:3px 5px;color:var(--text-sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.name}</div>
+                <div style="font-size:9px;padding:0 5px 3px;color:#aaa;">${dateLabel}</div>
+              </div>`;
+            }
+          }).join('')}
+        </div>
       </div>
-      <button onclick="document.getElementById('history-photo-modal').remove()" style="width:100%;margin-top:12px;padding:12px;background:var(--bg);border:none;border-radius:10px;font-size:14px;font-weight:700;color:var(--text-sub);cursor:pointer;font-family:inherit;">閉じる</button>
+      <button onclick="document.getElementById('history-photo-modal').remove()" style="width:100%;margin-top:12px;padding:12px;background:var(--bg);border:none;border-radius:10px;font-size:14px;font-weight:700;color:var(--text-sub);cursor:pointer;font-family:inherit;flex-shrink:0;">閉じる</button>
     </div>`;
   document.body.appendChild(modal);
 }
-function useHistoryPhoto(dataUrl, name) {
-  currentPhotos.push({ base64: dataUrl.split(',')[1], dataUrl });
-  renderPhotoThumbs();
+function useHistoryRecord(dataUrl, name, hasPhoto) {
   document.getElementById('history-photo-modal')?.remove();
+  if (hasPhoto && dataUrl) {
+    // 写真あり → 写真をセットして解析待ち
+    currentPhotos.push({ base64: dataUrl.split(',')[1], dataUrl });
+    renderPhotoThumbs();
+  } else {
+    // テキストのみ → テキスト欄に食品名を入れる
+    const textInput = document.getElementById('food-text-input');
+    if (textInput) {
+      textInput.value = textInput.value ? textInput.value + '、' + name : name;
+    }
+  }
   resetResult();
 }
 function setSkipMode() {
