@@ -1650,9 +1650,12 @@ function openResultPopup() {
   const overlay = document.getElementById('result-popup-overlay');
   const popup = document.getElementById('result-popup');
   overlay.style.display = 'block';
-  popup.style.display = 'block';
+  popup.style.display = 'flex';
   popup.style.transform = 'translateX(-50%) translateY(100%)';
   popup.style.transition = 'transform 0.35s cubic-bezier(0.175,0.885,0.32,1.275)';
+  // スクロールを先頭に戻す
+  const scrollArea = document.getElementById('result-popup-scroll');
+  if (scrollArea) scrollArea.scrollTop = 0;
   requestAnimationFrame(() => {
     popup.style.transform = 'translateX(-50%) translateY(0)';
   });
