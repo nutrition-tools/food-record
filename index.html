@@ -1875,21 +1875,44 @@ function updateAmount(val) {}
 function updateAmountFromInput(val) {}
 
 // ============================================================
+// 写真をサムネイルに圧縮（localStorage節約）
+function compressPhotoForStorage(dataUrl, maxSize = 200, quality = 0.5) {
+  return new Promise(resolve => {
+    if (!dataUrl) { resolve(null); return; }
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
 // SAVE MEAL
 // ============================================================
-function saveMeal() {
+async function saveMeal() {
   if (!foodItems.length && !currentNutrition) return;
   const records = getRecords();
   const now = new Date();
-  const dateKey = toDateStr(recordDate); // 選択した記録日を使用
+  const dateKey = toDateStr(recordDate);
   const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  // 写真をサムネイルに圧縮（200px, quality0.5 ≒ 5〜10KB程度）
+  const thumbPhoto = currentPhotos.length > 0
+    ? await compressPhotoForStorage(currentPhotos[0].dataUrl, 200, 0.5)
+    : null;
 
   // 食品ごとに個別エントリとして保存
   const entries = foodItems.length > 0 ? foodItems.map((item, i) => ({
     id: Date.now() + i,
     date: dateKey, time: timeStr, mealType: currentMeal,
     name: item.name,
-    photo: currentPhotos.length > 0 ? currentPhotos[0].dataUrl : null,
+    photo: thumbPhoto,
     cal:     item.baseCal     * item.ratio,
     protein: item.baseProtein * item.ratio,
     fat:     item.baseFat     * item.ratio,
@@ -1899,7 +1922,7 @@ function saveMeal() {
   })) : [{
     id: Date.now(), date: dateKey, time: timeStr, mealType: currentMeal,
     name: currentNutrition?.name || '食事',
-    photo: currentPhotos.length > 0 ? currentPhotos[0].dataUrl : null,
+    photo: thumbPhoto,
     cal: currentNutrition?.cal || 0, protein: currentNutrition?.protein || 0,
     fat: currentNutrition?.fat || 0, carb: currentNutrition?.carb || 0,
     fiber: currentNutrition?.fiber || 0, salt: currentNutrition?.salt || 0,
@@ -2669,7 +2692,18 @@ function getRecords() {
   try { return JSON.parse(localStorage.getItem('food_records') || '[]'); } catch(e) { return []; }
 }
 function saveRecords(arr) {
-  localStorage.setItem('food_records', JSON.stringify(arr));
+  try {
+    localStorage.setItem('food_records', JSON.stringify(arr));
+  } catch(e) {
+    // 容量超過の場合は写真を除いて再試行
+    try {
+      const stripped = arr.map(r => ({ ...r, photo: null }));
+      localStorage.setItem('food_records', JSON.stringify(stripped));
+      console.warn('写真データが大きすぎるため、写真なしで保存しました');
+    } catch(e2) {
+      showToast('❌ 保存容量が不足しています。古い記録を削除してください。');
+    }
+  }
 }
 function loadRecords() {
   buildDashRows();
